@@ -2,6 +2,9 @@ package com.example.firebaseweatherapp;
 
 import android.annotation.SuppressLint;
 import android.os.Bundle;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -14,19 +17,23 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 
 public class MainActivity extends AppCompatActivity {
     Map<String, Object> results = new HashMap<>();
-    ArrayList<String> listItems;
+    //private List<CityTemperature> listItems;
     private TextView display;
     private String cityName;
     private float currTemp;
     private float prevTemp;
     private float averageTemp;
-    ListView listView;
+    private List<String> data_list;
+    private ArrayAdapter<String> data_adapter;
+    private ListView data_view;
 
     @SuppressLint("MissingInflatedId")
     @Override
@@ -51,7 +58,16 @@ public class MainActivity extends AppCompatActivity {
         currTemp = 0.0f;
         averageTemp = 0.0f;
 
-        listItems = new ArrayList<>();
+        //Data
+        String[] data = {"Amogh","Ramnath","Shashank","Sujay"};                        //Dummy Data, Assuming json
+        data_list = new ArrayList<>(Arrays.asList(data));                              //Initializing City List with Dummy data
+        data_adapter = new ArrayAdapter<>(this,R.layout.list_cities, R.id.city_name,data_list); //Adapter Initialization
+        data_view = findViewById(android.R.id.list);                                   //Finding List View
+        data_view.setAdapter(data_adapter);                                            //Setting Adapter
+
+        //Displaying Cities
+        show_list();
+
     }
 
     // Function to add city to the list of cities
@@ -60,7 +76,15 @@ public class MainActivity extends AppCompatActivity {
         EditText newCity = findViewById(R.id.addCity);  //Getting City Name
         cityName = newCity.getText().toString();
         results.put("city", cityName);                  //For Displaying
-        updateDisplay();                                //Calling Display Function
+        // Accepting user input
+        if(!cityName.isEmpty()) //Ensure Data is present
+        {
+            data_list.add(cityName);
+            data_adapter.notifyDataSetChanged();
+            newCity.setText("");                       // Clear the EditText
+        } else {
+            Toast.makeText(getApplicationContext(), "Enter a valid name", Toast.LENGTH_SHORT).show();
+        }
     }
 
     // Function to update temperature of the selected city
@@ -73,15 +97,30 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this,"Temperature must not be empty", Toast.LENGTH_SHORT).show();
         }
         results.put("temp", currTemp);                 //For Displaying
-        updateDisplay();                               //Calling Display Function
+        //updateDisplay(cityName);                     //Calling Display Function
+        newTemp.setText("");                           // Clear the EditText
     }
 
     // Function to update Display
-    private void updateDisplay() {
+    private void updateDisplay(String cityName) {
         StringBuilder displayText = new StringBuilder();
+        results.put("city", cityName);
         displayText.append("Selected City: ").append(results.get("city")).append("\n");
         displayText.append("Temperature in °C: ").append(results.get("temp")).append("°C\n");
         displayText.append("Average Temperature in °C: ").append(results.get("avgTemp")).append("°C\n");
         display.setText(displayText.toString());
     }
-}
+    private View show_list() {
+        data_view.setOnItemClickListener(new AdapterView.OnItemClickListener() { //Listner for item click
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                String selectedItem = data_list.get(position); //Get Position of selected item
+                //Toast.makeText(getApplicationContext(), "Selected: " + selectedItem, Toast.LENGTH_SHORT).show();
+                updateDisplay(selectedItem);                                 //Display Selected City
+            }
+        });
+        return data_view;
+    }
+
+    //TODO: Average Temperature
+}//Activity
