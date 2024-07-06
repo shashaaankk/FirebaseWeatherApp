@@ -76,16 +76,16 @@ public class MainActivity extends AppCompatActivity {
         averageTemp = 0.0f;
 
         //Data
-        String[] data = {"Amogh","Ramnath","Shashank","Sujay"};                        //Dummy Data, Assuming json
-        data_list = new ArrayList<>(Arrays.asList(data));                              //Initializing City List with Dummy data
+        //String[] data = {"Amogh","Ramnath","Shashank","Sujay"};                                      //Dummy Data
+        data_list = new ArrayList<>(Arrays.asList()); //new ArrayList<>(Arrays.asList(data));          //Initializing City List with Dummy data
         data_adapter = new ArrayAdapter<>(this,R.layout.list_cities, R.id.city_name,data_list); //Adapter Initialization
-        data_view = findViewById(android.R.id.list);                                   //Finding List View
-        data_view.setAdapter(data_adapter);                                            //Setting Adapter
+        data_view = findViewById(android.R.id.list);                                                   //Finding List View
+        data_view.setAdapter(data_adapter);                                                            //Setting Adapter
 
         //Displaying Cities
         show_list();
 
-        //Data for db
+        //Data for db - Date
         currentDate = getCurrentDate();
 
         // Initialize Firebase Database
@@ -93,15 +93,13 @@ public class MainActivity extends AppCompatActivity {
 
         DatabaseReference team5Ref = mDatabase.child("teams").child("5").child("cities");
 
-        // Write to the database                                //Test
-        //team5Ref.setValue("Firebase Connection Successful!"); //Test
-
-        // Read from the database //Todo: Update
-        team5Ref.addValueEventListener(new ValueEventListener() {
+        // Read from the database
+        team5Ref.addListenerForSingleValueEvent(new ValueEventListener() {//team5Ref.addValueEventListener(new ValueEventListener() {
             public void onDataChange(DataSnapshot dataSnapshot) {
                 // Iterate over each city
                 for (DataSnapshot citySnapshot : dataSnapshot.getChildren()) {
                     String cityName = citySnapshot.getKey();
+                    data_list.add(cityName);
                     Log.d("FirebaseData", "City: " + cityName);
 
                     // Iterate over each date for the city
@@ -123,6 +121,26 @@ public class MainActivity extends AppCompatActivity {
             public void onCancelled(DatabaseError error) {
                 // Failed to read value
                 Log.w(TAG, "Failed to read value.", error.toException());
+            }
+        });
+
+        //Fetch and display city names
+        fetchCityNames();
+    }
+
+    // Function to fetch and display existing city names
+    private void fetchCityNames() {
+        mDatabase.child("teams").child("5").child("cities").get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                DataSnapshot dataSnapshot = task.getResult();
+                data_list.clear();  // Clear the existing list
+                for (DataSnapshot citySnapshot : dataSnapshot.getChildren()) {
+                    String cityName = citySnapshot.getKey();
+                    data_list.add(cityName);
+                }
+                data_adapter.notifyDataSetChanged();  // Notify adapter to update ListView
+            } else {
+                Toast.makeText(MainActivity.this, "Failed to load city names.", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -158,6 +176,7 @@ public class MainActivity extends AppCompatActivity {
         }
         results.put("temp", currTemp);                                   //For Displaying
         String currentTime = String.valueOf(System.currentTimeMillis()); //TimeStamp
+        results.put("timeStamp", currentTime);                           //For Displaying
         if (!cityName.equals("None")) {                                  //Update DB
             mDatabase.child("teams").child("5").child("cities").child(cityName).child(currentDate).child(currentTime).setValue(currTemp);
             Toast.makeText(this, "Temperature of: "  + cityName + "updated to: " + currTemp , Toast.LENGTH_SHORT).show();
@@ -176,6 +195,7 @@ public class MainActivity extends AppCompatActivity {
         displayText.append("Selected City: ").append(results.get("city")).append("\n");
         displayText.append("Temperature in °C: ").append(results.get("temp")).append("°C\n");
         displayText.append("Average Temperature in °C: ").append(results.get("avgTemp")).append("°C\n");
+        displayText.append("System Time: ").append(results.get("timeStamp")).append("ms\n");
         display.setText(displayText.toString());
     }
     private View show_list() {
