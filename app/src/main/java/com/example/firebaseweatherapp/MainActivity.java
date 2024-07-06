@@ -19,10 +19,13 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import com.google.firebase.database.DatabaseReference;
@@ -36,6 +39,7 @@ import com.google.firebase.database.ValueEventListener;
 
 public class MainActivity extends AppCompatActivity {
     Map<String, Object> results = new HashMap<>();
+    Map<String, Object> cityData = new HashMap<>();
     //private List<CityTemperature> listItems;
     private TextView display;
     private String cityName;
@@ -45,6 +49,8 @@ public class MainActivity extends AppCompatActivity {
     private List<String> data_list;
     private ArrayAdapter<String> data_adapter;
     private ListView data_view;
+    private String currentDate;
+    private DatabaseReference mDatabase;
 
     @SuppressLint("MissingInflatedId")
     @Override
@@ -79,22 +85,39 @@ public class MainActivity extends AppCompatActivity {
         //Displaying Cities
         show_list();
 
+        //Data for db
+        currentDate = getCurrentDate();
+
         // Initialize Firebase Database
-        FirebaseDatabase database = FirebaseDatabase.getInstance();
-        DatabaseReference rootRef = database.getReference();
-        DatabaseReference team5Ref = rootRef.child("teams").child("5"); //Test node
+        mDatabase = FirebaseDatabase.getInstance().getReference();
 
-        // Write to the database
-        team5Ref.setValue("Firebase Connection Successful!"); //Test
+        DatabaseReference team5Ref = mDatabase.child("teams").child("5").child("cities");
 
-        // Read from the database
+        // Write to the database                                //Test
+        //team5Ref.setValue("Firebase Connection Successful!"); //Test
+
+        // Read from the database //Todo: Update
         team5Ref.addValueEventListener(new ValueEventListener() {
-            @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                // Method is called once with the initial value and again
-                // whenever data at this location is updated.
-                String value = dataSnapshot.getValue(String.class);
-                Log.d("******VALUE******", "Value is: " + value);
+                // Iterate over each city
+                for (DataSnapshot citySnapshot : dataSnapshot.getChildren()) {
+                    String cityName = citySnapshot.getKey();
+                    Log.d("FirebaseData", "City: " + cityName);
+
+                    // Iterate over each date for the city
+                    for (DataSnapshot dateSnapshot : citySnapshot.getChildren()) {
+                        String date = dateSnapshot.getKey();
+                        Log.d("FirebaseData", "Date: " + date);
+
+                        // Iterate over each time for the date
+                        for (DataSnapshot timeSnapshot : dateSnapshot.getChildren()) {
+                            String time = timeSnapshot.getKey();
+                            Double temperature = timeSnapshot.getValue(Double.class);
+
+                            Log.d("FirebaseData", "Time: " + time + ", Temperature: " + temperature);
+                        }
+                    }
+                }
             }
             @Override
             public void onCancelled(DatabaseError error) {
@@ -102,7 +125,6 @@ public class MainActivity extends AppCompatActivity {
                 Log.w(TAG, "Failed to read value.", error.toException());
             }
         });
-
     }
 
     // Function to add city to the list of cities
@@ -117,6 +139,9 @@ public class MainActivity extends AppCompatActivity {
             data_list.add(cityName);
             data_adapter.notifyDataSetChanged();
             newCity.setText("");                       // Clear the EditText
+            // Update Firebase with the new city
+            mDatabase.child("teams").child("5").child("cities").child(cityName).child(currentDate).setValue(true);
+            Toast.makeText(this,"City Added with current date", Toast.LENGTH_SHORT).show();
         } else {
             Toast.makeText(getApplicationContext(), "Enter a valid name", Toast.LENGTH_SHORT).show();
         }
@@ -131,7 +156,15 @@ public class MainActivity extends AppCompatActivity {
         }catch (NumberFormatException ex){
             Toast.makeText(this,"Temperature must not be empty", Toast.LENGTH_SHORT).show();
         }
-        results.put("temp", currTemp);                 //For Displaying
+        results.put("temp", currTemp);                                   //For Displaying
+        String currentTime = String.valueOf(System.currentTimeMillis()); //TimeStamp
+        if (!cityName.equals("None")) {                                  //Update DB
+            mDatabase.child("teams").child("5").child("cities").child(cityName).child(currentDate).child(currentTime).setValue(currTemp);
+            Toast.makeText(this, "Temperature of: "  + cityName + "updated to: " + currTemp , Toast.LENGTH_SHORT).show();
+            newTemp.setText("");
+        } else {
+            Toast.makeText(this, "Please select a city first", Toast.LENGTH_SHORT).show();
+        }
         //updateDisplay(cityName);                     //Calling Display Function
         newTemp.setText("");                           // Clear the EditText
     }
@@ -155,5 +188,10 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         return data_view;
+    }
+
+    private String getCurrentDate() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        return sdf.format(new Date());
     }
 }//Activity
