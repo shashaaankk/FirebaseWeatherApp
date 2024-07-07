@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
@@ -39,13 +40,10 @@ import com.google.firebase.database.ValueEventListener;
 
 public class MainActivity extends AppCompatActivity {
     Map<String, Object> results = new HashMap<>();
-    Map<String, Object> cityData = new HashMap<>();
-    //private List<CityTemperature> listItems;
+    Map<String, Map<String, Double>> cityData;
     private TextView display;
     private String cityName;
     private float currTemp;
-    private float prevTemp;
-    private float averageTemp;
     private List<String> data_list;
     private ArrayAdapter<String> data_adapter;
     private ListView data_view;
@@ -73,10 +71,8 @@ public class MainActivity extends AppCompatActivity {
         //Initiate variables
         cityName = "None";
         currTemp = 0.0f;
-        averageTemp = 0.0f;
 
         //Data
-        //String[] data = {"Amogh","Ramnath","Shashank","Sujay"};                                      //Dummy Data
         data_list = new ArrayList<>(Arrays.asList()); //new ArrayList<>(Arrays.asList(data));          //Initializing City List with Dummy data
         data_adapter = new ArrayAdapter<>(this,R.layout.list_cities, R.id.city_name,data_list); //Adapter Initialization
         data_view = findViewById(android.R.id.list);                                                   //Finding List View
@@ -95,7 +91,7 @@ public class MainActivity extends AppCompatActivity {
         fetchCityNames();
     }
 
-    // Function to fetch and display existing city names
+    // Function to fetch and display existing city names for displaying on the list
     private void fetchCityNames() {
         mDatabase.child("teams").child("5").child("cities").get().addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
@@ -155,16 +151,17 @@ public class MainActivity extends AppCompatActivity {
         newTemp.setText("");                           // Clear the EditText
     }
 
-    // Function to update Display
+    // Function to update Display //Todo: Get the right data for displaying
     private void updateDisplay(String cityName) {
         StringBuilder displayText = new StringBuilder();
         results.put("city", cityName);
         displayText.append("Selected City: ").append(results.get("city")).append("\n");
         displayText.append("Temperature in °C: ").append(results.get("temp")).append("°C\n");
-        displayText.append("Average Temperature in °C: ").append(results.get("avgTemp")).append("°C\n");
+        displayText.append("Avg. Temp in °C: ").append(results.get("avgTemp")).append("°C\n");
         displayText.append("System Time: ").append(results.get("timeStamp")).append("ms\n");
         display.setText(displayText.toString());
     }
+    // Display list and set listener to get the selected city from the list of cities
     private View show_list() {
         data_view.setOnItemClickListener(new AdapterView.OnItemClickListener() { //Listner for item click
             @Override
@@ -172,51 +169,82 @@ public class MainActivity extends AppCompatActivity {
                 String selectedItem = data_list.get(position); //Get Position of selected item
                 cityName = selectedItem;
                 Toast.makeText(getApplicationContext(), "Selected: " + selectedItem, Toast.LENGTH_SHORT).show();
-                //getDisplayData(selectedItem);                              //Get Details of the selected city
-                updateDisplay(selectedItem);                                 //Display Selected City
+                cityData = new HashMap<>();                                //Hash map to store the selected city's data
+                getDisplayData(selectedItem);                              //Get Details of the selected city
+                updateDisplay(selectedItem);                               //Display Selected City
+
             }
         });
         return data_view;
     }
 
+    //Todo:Get Display Data for the selected city(1.2)
     private void getDisplayData(String selectedCity) {
         // Read from the database
-        DatabaseReference mRef = mDatabase.child("teams").child("5").child("cities");
-        mRef.addValueEventListener(new ValueEventListener() { //Todo:Figure out the right listener
+        DatabaseReference mRef = mDatabase.child("teams").child("5").child("cities").child(selectedCity);
+        mRef.addListenerForSingleValueEvent(new ValueEventListener() { //To retrieve data from the database exactly once.
             public void onDataChange(DataSnapshot dataSnapshot) {
-                // Iterate over each city
-                for (DataSnapshot citySnapshot : dataSnapshot.getChildren()) {
-                    String cityName = citySnapshot.getKey();
-                    if(cityName == selectedCity)
-                    {
-                        //Fetch Temperature
+                for (DataSnapshot dateSnapshot : dataSnapshot.getChildren()) {
+                    String date = dateSnapshot.getKey();                     //Date
+                    Map<String, Double> dateData = new HashMap<>();          //date wise data
+                    for (DataSnapshot timeSnapshot : dateSnapshot.getChildren()) {
+                        String time = timeSnapshot.getKey();
+                        double temperature = timeSnapshot.getValue(Double.class);
+                        dateData.put(time, temperature);                     //time:temp
                     }
-
-                    // Iterate over each date for the city
-                    for (DataSnapshot dateSnapshot : citySnapshot.getChildren()) {
-                        String date = dateSnapshot.getKey();
-                        Log.d("FirebaseData", "Date: " + date);
-
-                        // Iterate over each time for the date
-                        for (DataSnapshot timeSnapshot : dateSnapshot.getChildren()) {
-                            String time = timeSnapshot.getKey();
-                            Double temperature = timeSnapshot.getValue(Double.class);
-
-                            Log.d("FirebaseData", "Time: " + time + ", Temperature: " + temperature);
-                        }
-                    }
+                    cityData.put(date, dateData);                            //for every date,add corresponding timestamps and their temp values
                 }
+                displayCityData(cityData);
             }
             @Override
-            public void onCancelled(DatabaseError error) {
-                // Failed to read value
-                Log.w(TAG, "Failed to read value.", error.toException());
+            public void onCancelled(DatabaseError databaseError) {
+                Log.w(TAG, "Failed to read value.", databaseError.toException());
             }
         });
     }
-
     private String getCurrentDate() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         return sdf.format(new Date());
     }
+
+    //Temporary logging function
+    private void displayCityData(Map<String, Map<String, Double>> cityData) {
+        // This function will handle displaying or processing the city data
+        for (String date : cityData.keySet()) {
+            Log.d("CityData", "Date: " + date);
+            ArrayList<Double> tempToday = new ArrayList<Double>();
+            for (String time : cityData.get(date).keySet()) {
+                Double temperature = cityData.get(date).get(time);
+                //Log.d("CityData", "Time: " + time + ", Temperature: " + temperature);
+
+                tempToday.add(temperature);
+                temperature = tempToday.get(tempToday.size() - 1);
+                results.put("temp", temperature);
+            }
+                if(Objects.equals(date, currentDate))
+                {
+                    float avgTemp = calculateAvgTemp(tempToday);
+                    results.put("avgTemp", avgTemp);
+                }
+
+        }
+    }
+
+    //Todo:Continuously display the latest temperature of the selected city (subscription)  (2.1) //Add a second device for test
+
+    //Todo:Temperature Average of the current day (continuous, subscription)                (2.2)
+    float calculateAvgTemp(ArrayList<Double> tempToday)
+    {
+        Log.d("Number of Temperature Entries", String.valueOf(tempToday.size()));
+        float avg = 0;
+        for (int i = 0; i<tempToday.size(); i++)
+        {
+            Log.d("Temperature", String.valueOf(tempToday.get(i)));
+            avg+= tempToday.get(i);
+        }
+        avg = avg/tempToday.size();
+        Log.d("Average Temperature", String.valueOf(avg));
+        return avg;
+    }
+    //Todo:Fix Display
 }//Activity
