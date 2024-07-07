@@ -65,8 +65,8 @@ public class MainActivity extends AppCompatActivity {
         });
 
         //Setting up Buttons and Listeners
-        findViewById(R.id.updateTemp).setOnClickListener(v -> updateTempFirebase());    //Calls updateTempFirebase() on Click
-        findViewById(R.id.addCitybtn).setOnClickListener(v -> addCityFirebase());       //Calls addCityFirebase() on Click
+        findViewById(R.id.updateTemp).setOnClickListener(v -> updateTempFirebase(cityName));    //Calls updateTempFirebase() on Click
+        findViewById(R.id.addCitybtn).setOnClickListener(v -> addCityFirebase());               //Calls addCityFirebase() on Click
         //Display
         display = findViewById(R.id.display);
 
@@ -90,39 +90,6 @@ public class MainActivity extends AppCompatActivity {
 
         // Initialize Firebase Database
         mDatabase = FirebaseDatabase.getInstance().getReference();
-
-        DatabaseReference team5Ref = mDatabase.child("teams").child("5").child("cities");
-
-        // Read from the database
-        team5Ref.addListenerForSingleValueEvent(new ValueEventListener() {//team5Ref.addValueEventListener(new ValueEventListener() {
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                // Iterate over each city
-                for (DataSnapshot citySnapshot : dataSnapshot.getChildren()) {
-                    String cityName = citySnapshot.getKey();
-                    data_list.add(cityName);
-                    Log.d("FirebaseData", "City: " + cityName);
-
-                    // Iterate over each date for the city
-                    for (DataSnapshot dateSnapshot : citySnapshot.getChildren()) {
-                        String date = dateSnapshot.getKey();
-                        Log.d("FirebaseData", "Date: " + date);
-
-                        // Iterate over each time for the date
-                        for (DataSnapshot timeSnapshot : dateSnapshot.getChildren()) {
-                            String time = timeSnapshot.getKey();
-                            Double temperature = timeSnapshot.getValue(Double.class);
-
-                            Log.d("FirebaseData", "Time: " + time + ", Temperature: " + temperature);
-                        }
-                    }
-                }
-            }
-            @Override
-            public void onCancelled(DatabaseError error) {
-                // Failed to read value
-                Log.w(TAG, "Failed to read value.", error.toException());
-            }
-        });
 
         //Fetch and display city names
         fetchCityNames();
@@ -166,7 +133,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // Function to update temperature of the selected city
-    private void updateTempFirebase() {
+    private void updateTempFirebase(String selectedCity) {
         //Toast.makeText(this,"Updating Temperature", Toast.LENGTH_SHORT).show();
         EditText newTemp = findViewById(R.id.Temp);    //Getting Temperature
         try {                                          //handling blank input
@@ -203,11 +170,49 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 String selectedItem = data_list.get(position); //Get Position of selected item
-                //Toast.makeText(getApplicationContext(), "Selected: " + selectedItem, Toast.LENGTH_SHORT).show();
+                cityName = selectedItem;
+                Toast.makeText(getApplicationContext(), "Selected: " + selectedItem, Toast.LENGTH_SHORT).show();
+                //getDisplayData(selectedItem);                              //Get Details of the selected city
                 updateDisplay(selectedItem);                                 //Display Selected City
             }
         });
         return data_view;
+    }
+
+    private void getDisplayData(String selectedCity) {
+        // Read from the database
+        DatabaseReference mRef = mDatabase.child("teams").child("5").child("cities");
+        mRef.addValueEventListener(new ValueEventListener() { //Todo:Figure out the right listener
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                // Iterate over each city
+                for (DataSnapshot citySnapshot : dataSnapshot.getChildren()) {
+                    String cityName = citySnapshot.getKey();
+                    if(cityName == selectedCity)
+                    {
+                        //Fetch Temperature
+                    }
+
+                    // Iterate over each date for the city
+                    for (DataSnapshot dateSnapshot : citySnapshot.getChildren()) {
+                        String date = dateSnapshot.getKey();
+                        Log.d("FirebaseData", "Date: " + date);
+
+                        // Iterate over each time for the date
+                        for (DataSnapshot timeSnapshot : dateSnapshot.getChildren()) {
+                            String time = timeSnapshot.getKey();
+                            Double temperature = timeSnapshot.getValue(Double.class);
+
+                            Log.d("FirebaseData", "Time: " + time + ", Temperature: " + temperature);
+                        }
+                    }
+                }
+            }
+            @Override
+            public void onCancelled(DatabaseError error) {
+                // Failed to read value
+                Log.w(TAG, "Failed to read value.", error.toException());
+            }
+        });
     }
 
     private String getCurrentDate() {
