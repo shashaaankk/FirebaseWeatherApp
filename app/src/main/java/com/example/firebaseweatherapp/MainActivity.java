@@ -74,7 +74,7 @@ public class MainActivity extends AppCompatActivity {
 
         //Data
         data_list = new ArrayList<>(Arrays.asList()); //new ArrayList<>(Arrays.asList(data));          //Initializing City List with Dummy data
-        data_adapter = new ArrayAdapter<>(this,R.layout.list_cities, R.id.city_name,data_list); //Adapter Initialization
+        data_adapter = new ArrayAdapter<>(this, R.layout.list_cities, R.id.city_name, data_list); //Adapter Initialization
         data_view = findViewById(android.R.id.list);                                                   //Finding List View
         data_view.setAdapter(data_adapter);                                                            //Setting Adapter
 
@@ -89,8 +89,50 @@ public class MainActivity extends AppCompatActivity {
 
         //Fetch and display city names
         fetchCityNames();
+        DatabaseReference mRef = mDatabase.child("teams").child("5").child("cities");
+        mRef.addValueEventListener(new ValueEventListener() { //To retrieve data from the database exactly once.
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                Log.d("Database","Updated");
+                Double timestamp= 0.0;
+                int counter =0;
+                Double current_temp = 0.0 ;
+                Double accumlator = 0.0;
+                StringBuilder displayText = new StringBuilder();
+                displayText.append("Selected City: ").append(cityName).append("\n");
+                for (DataSnapshot cities: dataSnapshot.getChildren()) {
+                    if(cities.getKey().equals(cityName)) {
+                        Log.d("Database","cities size"+cities.toString());
+                        for (DataSnapshot dateSnapshot : cities.getChildren()) {
+                            if (dateSnapshot.getKey().equals(currentDate)) {
+                                Log.d("Database","date size"+dateSnapshot.toString());
+                                for (DataSnapshot timeSnapshot : dateSnapshot.getChildren()) {
+                                    Log.d("Database","time "+timeSnapshot.toString());
+                                    String time = timeSnapshot.getKey();
+                                    Double temp = timeSnapshot.getValue(Double.class);
+                                    counter+=1;
+                                    accumlator+=temp;
+                                    if (Double.valueOf(time)>timestamp) {
+                                        Log.d("database","greater timestamp");
+                                        timestamp = Double.valueOf(time);
+                                        current_temp = temp;
+                                    }
+                                }
+                                displayText.append("Temperature in °C: ").append(current_temp).append("°C\n");
+                                displayText.append("Avg. Temp in °C: ").append(accumlator/counter).append("°C\n");
+                                displayText.append("System Time: ").append(timestamp).append("ms\n");
+                                break;
+                            }
+                        }
+                    }
+                }
+                display.setText(displayText.toString());
+            }
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                Log.w(TAG, "Failed to read value.", databaseError.toException());
+            }
+        });
     }
-
     // Function to fetch and display existing city names for displaying on the list
     private void fetchCityNames() {
         mDatabase.child("teams").child("5").child("cities").get().addOnCompleteListener(task -> {
@@ -181,20 +223,43 @@ public class MainActivity extends AppCompatActivity {
     //Todo:Get Display Data for the selected city(1.2)
     private void getDisplayData(String selectedCity) {
         // Read from the database
-        DatabaseReference mRef = mDatabase.child("teams").child("5").child("cities").child(selectedCity);
+        DatabaseReference mRef = mDatabase.child("teams").child("5").child("cities");
         mRef.addListenerForSingleValueEvent(new ValueEventListener() { //To retrieve data from the database exactly once.
             public void onDataChange(DataSnapshot dataSnapshot) {
-                for (DataSnapshot dateSnapshot : dataSnapshot.getChildren()) {
-                    String date = dateSnapshot.getKey();                     //Date
-                    Map<String, Double> dateData = new HashMap<>();          //date wise data
-                    for (DataSnapshot timeSnapshot : dateSnapshot.getChildren()) {
-                        String time = timeSnapshot.getKey();
-                        double temperature = timeSnapshot.getValue(Double.class);
-                        dateData.put(time, temperature);                     //time:temp
+                Log.d("Database","Updated");
+                Double timestamp= 0.0;
+                int counter =0;
+                Double current_temp = 0.0 ;
+                Double accumlator = 0.0;
+                StringBuilder displayText = new StringBuilder();
+                displayText.append("Selected City: ").append(cityName).append("\n");
+                for (DataSnapshot cities: dataSnapshot.getChildren()) {
+                    if(cities.getKey().equals(cityName)) {
+                        Log.d("Database","cities size"+cities.toString());
+                        for (DataSnapshot dateSnapshot : cities.getChildren()) {
+                            if (dateSnapshot.getKey().equals(currentDate)) {
+                                Log.d("Database","date size"+dateSnapshot.toString());
+                                for (DataSnapshot timeSnapshot : dateSnapshot.getChildren()) {
+                                    Log.d("Database","time "+timeSnapshot.toString());
+                                    String time = timeSnapshot.getKey();
+                                    Double temp = timeSnapshot.getValue(Double.class);
+                                    counter+=1;
+                                    accumlator+=temp;
+                                    if (Double.valueOf(time)>timestamp) {
+                                        Log.d("database","greater timestamp");
+                                        timestamp = Double.valueOf(time);
+                                        current_temp = temp;
+                                    }
+                                }
+                                displayText.append("Temperature in °C: ").append(current_temp).append("°C\n");
+                                displayText.append("Avg. Temp in °C: ").append(accumlator/counter).append("°C\n");
+                                displayText.append("System Time: ").append(timestamp).append("ms\n");
+                                break;
+                            }
+                        }
                     }
-                    cityData.put(date, dateData);                            //for every date,add corresponding timestamps and their temp values
                 }
-                displayCityData(cityData);
+                display.setText(displayText.toString());
             }
             @Override
             public void onCancelled(DatabaseError databaseError) {
